@@ -1,0 +1,12 @@
+<service>
+ <id>nginx-web-s</id>
+ <executable>{{ nginx_path }}nginx-{{ nginx_version }}\nginx.exe</executable>
+ <name>Nginx Service</name>
+ <description>v{{ nginx_version }}</description>
+ <workingdirectory>{{ nginx_path }}nginx-{{ nginx_version }}</workingdirectory>
+ <priority>Normal</priority>
+ <stoptimeout>15</stoptimeout>
+ <stopexecutable>{{ nginx_path }}nginx-{{ nginx_version }}\nginx.exe</stopexecutable>
+ <stoparguments>-s stop</stoparguments>
+ <startmode>Automatic</startmode>
+</service>

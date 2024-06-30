@@ -1,0 +1,100 @@
+---
+
+- name: Make nginx directory
+  ansible.windows.win_file:
+    path: "{{ nginx_path }}"
+    state: directory
+
+- name: Download Nginx
+  ansible.windows.win_get_url:
+    url: "https://nginx.org/download/nginx-{{ nginx_version }}.zip"
+    dest: "{{ nginx_path }}nginx-{{ nginx_version }}.zip"
+
+- name: Unzip nginx to work directory
+  win_unzip:
+    src: "{{ nginx_path }}nginx-{{ nginx_version }}.zip"
+    dest: "{{ nginx_path }}"
+    creates: "{{ nginx_path }}nginx-{{ nginx_version }}\\nginx.exe"
+
+- name: Download Windows Service Wrapper
+  ansible.windows.win_get_url:
+    url: "https://github.com/winsw/winsw/releases/download/v{{ wsw_version }}/WinSW-x64.exe"
+    dest: "{{ nginx_path }}nginx-{{ nginx_version }}\\nginx_svc.exe"
+
+- name: Create a file with service config
+  win_template:
+    src: ../templates/nginx_svc.xml.j2
+    dest: "{{ nginx_path }}nginx-{{ nginx_version }}\\nginx_svc.xml"
+
+- name: Create a service for Nginx
+  ansible.windows.win_shell: "{{ nginx_path }}nginx-{{ nginx_version }}\\nginx_svc.exe install"
+  ignore_errors: true
+
+# It is works but it`s bad idea!   
+#- name: Create a new service for Nginx
+#  win_service:
+#    name: nginx
+#    path: "{{ nginx_path }}nginx-{{ nginx_version }}\\nginx.exe -p {{ nginx_path }}nginx-{{ nginx_version }}"
+#    display_name: "Nginx Web Server - v{{ nginx_version }}"
+#    description: "v{{ nginx_version }}"
+
+- name: Make nginx custom config directory
+  ansible.windows.win_file:
+    path: "{{ nginx_path }}nginx-{{ nginx_version }}\\conf.d\\"
+    state: directory
+
+- name: Make directory for ssl files
+  ansible.windows.win_file:
+    path: "{{ nginx_path }}nginx-{{ nginx_version }}\\ssl\\"
+    state: directory
+
+- name: Copy SSL certificates to nginx folder
+  win_robocopy:
+    src: "{{ ssl_directory }}"
+    dest: "{{ nginx_path }}nginx-{{ nginx_version }}\\ssl\\"
+
+- name: Set main custom configuration
+  win_template:
+    src: ../templates/nginx_default.conf.j2
+    dest: "{{ nginx_path }}nginx-{{ nginx_version }}\\conf\\nginx.conf"
+  notify:
+    - Nginx Restart
+
+- name: Set custom configuration
+  win_template:
+    src: ../templates/nginx_site.conf.j2
+    dest: "{{ nginx_path }}nginx-{{ nginx_version }}\\conf.d\\{{ domain_name }}.conf"
+  notify:
+    - Nginx Restart
+
+- name: Nginx start service
+  win_service:
+    name: Nginx Service
+    state: started
+
+- name: Firewall rule for HTTP
+  win_firewall_rule:
+    name: HTTP
+    localport: 80
+    action: allow
+    direction: in
+    protocol: tcp
+    state: present
+    enabled: yes
+
+- name: Firewall rule for HTTPS
+  win_firewall_rule:
+    name: HTTPS
+    localport: 443
+    action: allow
+    direction: in
+    protocol: tcp
+    state: present
+    enabled: yes
+
+- name: Set html with secret value
+  win_template:
+    src: ../templates/index.html.j2
+    dest: "{{ nginx_path }}nginx-{{ nginx_version }}\\html\\index.html"
+  notify:
+    - Nginx Restart

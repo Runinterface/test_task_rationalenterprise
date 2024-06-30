@@ -1,0 +1,7 @@
+---
+
+#We must RELOAD NGINX, without restart, but standard Windows services do not allow this, but we can do this in shell.
+- name: Nginx Restart
+  win_service:
+    name: Nginx Service
+    state: restarted

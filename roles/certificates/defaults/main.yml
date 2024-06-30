@@ -1,0 +1,10 @@
+---
+ssl_directory: C:\ssl\
+openssl_version: "3_3_1"
+openssl_bin: "& 'C:\\Program Files\\OpenSSL-Win64\\bin\\openssl.exe'"
+domain_name: "test.local"
+rootCA_days: 3650
+crt_days: 365
+crt_org: "my.org"
+crt_country: 'US'
+crt_state: 'CA'

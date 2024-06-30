@@ -1,0 +1,45 @@
+---
+
+- name: Make ssl directory
+  ansible.windows.win_file:
+    path: "{{ ssl_directory }}"
+    state: directory
+
+- name: Install Openssl
+  ansible.windows.win_package:
+    path: "https://slproweb.com/download/Win64OpenSSL-{{ openssl_version }}.msi"
+    state: present
+
+- name: Generate Root CA Key
+  ansible.windows.win_shell: "{{ openssl_bin }} genrsa -out {{ ssl_directory }}rootCA.key 2048"
+  args:
+    creates: "{{ ssl_directory }}rootCA.key"
+
+- name: Generate Self Signed Root CA
+  ansible.windows.win_shell: "{{ openssl_bin }} req -x509 -new -nodes -key {{ ssl_directory }}rootCA.key -sha256 -days {{ rootCA_days }} -subj '/C={{ crt_country }}/ST={{ crt_state }}, Inc./CN={{ domain_name }}' -out {{ssl_directory}}rootCA.crt"
+  args:
+    creates: "{{ssl_directory}}rootCA.crt"
+
+- name: Set ext configuration
+  win_template:
+    src: ../templates/config.ext.j2
+    dest: "{{ ssl_directory }}config.{{ domain_name }}.ext"
+
+- name: Generate Certificate Key
+  ansible.windows.win_shell: "{{ openssl_bin }} genrsa -out {{ ssl_directory }}{{ domain_name }}.key 2048"
+
+- name: Generate CSR
+  ansible.windows.win_shell: "{{ openssl_bin }} req -new -sha256 -key {{ ssl_directory }}{{ domain_name }}.key -subj '/CN={{ domain_name }}' -out {{ ssl_directory }}{{ domain_name }}.csr"
+
+- name: Generate Self Signed Certificate
+  ansible.windows.win_shell: "{{ openssl_bin }} x509 -req -in {{ ssl_directory }}{{ domain_name }}.csr -CA {{ ssl_directory }}rootCA.crt -CAkey {{ ssl_directory }}rootCA.key -CAcreateserial -out {{ ssl_directory }}{{ domain_name }}.crt -days {{ crt_days }} -sha256 -extfile {{ ssl_directory }}config.{{ domain_name }}.ext"
+
+- name: Generate dhparam
+  ansible.windows.win_shell: "{{ openssl_bin }}  dhparam -out {{ ssl_directory }}{{ domain_name }}.pem 1024"
+
+- name: Install Root CA
+  ansible.windows.win_certificate_store:
+    path: "{{ ssl_directory }}rootCA.crt"
+    store_location: LocalMachine
+    store_name: Root
+    state: present
